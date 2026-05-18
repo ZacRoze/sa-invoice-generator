@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SA Invoice Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root {
+    --navy: #1a2744;
+    --gold: #c8a84b;
+    --gold-light: #e8c96a;
+    --cream: #faf8f3;
+    --white: #ffffff;
+    --gray: #6b7280;
+    --gray-light: #f3f4f6;
+    --border: #e5e2d8;
+    --success: #166534;
+    --success-bg: #dcfce7;
+    --error: #991b1b;
+    --error-bg: #fee2e2;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Georgia', serif;
+    background: var(--cream);
+    color: var(--navy);
+    min-height: 100vh;
+  }
+  header {
+    background: var(--navy);
+    padding: 1.25rem 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    border-bottom: 3px solid var(--gold);
+  }
+  header img { height: 36px; }
+  header h1 {
+    font-size: 1.1rem;
+    font-weight: normal;
+    color: var(--white);
+    letter-spacing: 0.05em;
+  }
+  header span {
+    color: var(--gold);
+    font-size: 0.85rem;
+    margin-left: auto;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  main {
+    max-width: 800px;
+    margin: 2rem auto;
+    padding: 0 1.5rem 4rem;
+  }
+  .step {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-bottom: 1.25rem;
+    overflow: hidden;
+  }
+  .step-header {
+    background: var(--navy);
+    color: var(--white);
+    padding: 0.75rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .step-number {
+    background: var(--gold);
+    color: var(--navy);
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.8rem;
+    font-weight: bold;
+    font-family: sans-serif;
+    flex-shrink: 0;
+  }
+  .step-title { font-size: 0.95rem; letter-spacing: 0.04em; }
+  .step-body { padding: 1.25rem; }
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: 4px;
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    font-family: sans-serif;
+    font-size: 0.9rem;
+    color: var(--gray);
+  }
+  .upload-zone:hover { border-color: var(--gold); background: #fdf9f0; }
+  .upload-zone.loaded {
+    border-color: #16a34a;
+    background: var(--success-bg);
+    color: var(--success);
+  }
+  .upload-zone input { display: none; }
+  .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.875rem; }
+  .field-grid.three { grid-template-columns: 1fr 1fr 1fr; }
+  .field-group { display: flex; flex-direction: column; gap: 0.3rem; }
+  label {
+    font-family: sans-serif;
+    font-size: 0.78rem;
+    color: var(--gray);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  input, select {
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.5rem 0.625rem;
+    font-size: 0.9rem;
+    font-family: sans-serif;
+    color: var(--navy);
+    background: var(--white);
+    width: 100%;
+    transition: border-color 0.15s;
+  }
+  input:focus, select:focus {
+    outline: none;
+    border-color: var(--gold);
+  }
+  input.auto-filled { background: #fdf9f0; border-color: var(--gold-light); }
+  .preview-box {
+    background: var(--gray-light);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    font-family: sans-serif;
+    font-size: 0.85rem;
+  }
+  .preview-table { width: 100%; border-collapse: collapse; }
+  .preview-table th {
+    background: var(--navy);
+    color: var(--white);
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    font-size: 0.78rem;
+    font-weight: normal;
+    letter-spacing: 0.04em;
+  }
+  .preview-table td { padding: 0.4rem 0.75rem; border-top: 1px solid var(--border); }
+  .preview-table tr:nth-child(even) td { background: var(--white); }
+  .preview-table .total-row td { font-weight: bold; border-top: 2px solid var(--navy); }
+  .status { font-family: sans-serif; font-size: 0.85rem; margin-top: 0.625rem; }
+  .status.ok { color: var(--success); }
+  .status.err { color: var(--error); }
+  .generate-btn {
+    width: 100%;
+    background: var(--navy);
+    color: var(--white);
+    border: none;
+    padding: 0.875rem;
+    font-size: 1rem;
+    font-family: 'Georgia', serif;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+  .generate-btn:hover { background: #243560; }
+  .generate-btn:disabled { background: var(--gray); cursor: not-allowed; }
+  .gold-line {
+    height: 3px;
+    background: linear-gradient(90deg, var(--gold), var(--gold-light), var(--gold));
+    margin-bottom: 1.5rem;
+    border-radius: 2px;
+  }
+  .hint { font-family: sans-serif; font-size: 0.78rem; color: var(--gray); margin-top: 0.3rem; }
+  hr { border: none; border-top: 1px solid var(--border); margin: 1rem 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <img src="data:image/jpeg;base64,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" alt="Student Advocacy">
+  <h1>Client Invoice Generator</h1>
+  <span>Student Advocacy, Inc.</span>
+</header>
+
+<main>
+  <div class="gold-line"></div>
+
+  <!-- Step 1: LS Letter -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-number">1</div>
+      <div class="step-title">Upload LS-generated cover letter (.docx)</div>
+    </div>
+    <div class="step-body">
+      <div class="upload-zone" id="letterZone" onclick="document.getElementById('letterInput').click()">
+        <div style="font-size:1.5rem;margin-bottom:0.5rem">📄</div>
+        Click to upload the invoice cover letter from LegalServer
+        <input type="file" id="letterInput" accept=".docx">
+      </div>
+      <div class="status" id="letterStatus"></div>
+    </div>
+  </div>
+
+  <!-- Step 2: CSV -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-number">2</div>
+      <div class="step-title">Upload timeslips CSV export</div>
+    </div>
+    <div class="step-body">
+      <div class="upload-zone" id="csvZone" onclick="document.getElementById('csvInput').click()">
+        <div style="font-size:1.5rem;margin-bottom:0.5rem">📊</div>
+        Click to upload the timeslips CSV from the case timeslips tab
+        <input type="file" id="csvInput" accept=".csv">
+      </div>
+      <div class="status" id="csvStatus"></div>
+      <div id="previewArea" style="margin-top:1rem"></div>
+    </div>
+  </div>
+
+  <!-- Step 3: Client Details -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-number">3</div>
+      <div class="step-title">Confirm client details</div>
+    </div>
+    <div class="step-body">
+      <div class="field-grid" style="margin-bottom:0.875rem">
+        <div class="field-group">
+          <label>Student full name</label>
+          <input type="text" id="studentName" placeholder="First Last">
+        </div>
+        <div class="field-group">
+          <label>Parent / guardian name</label>
+          <input type="text" id="guardianName" placeholder="First Last">
+        </div>
+      </div>
+      <div class="field-group" style="margin-bottom:0.875rem">
+        <label>Client address</label>
+        <input type="text" id="clientAddr" placeholder="123 Main Street">
+      </div>
+      <div class="field-grid three" style="margin-bottom:0.875rem">
+        <div class="field-group">
+          <label>City</label>
+          <input type="text" id="clientCity" placeholder="Tarrytown">
+        </div>
+        <div class="field-group">
+          <label>State</label>
+          <input type="text" id="clientState" placeholder="NY">
+        </div>
+        <div class="field-group">
+          <label>Zip</label>
+          <input type="text" id="clientZip" placeholder="10591">
+        </div>
+      </div>
+      <div class="field-grid" style="margin-bottom:0.875rem">
+        <div class="field-group">
+          <label>Client phone</label>
+          <input type="text" id="clientPhone" placeholder="(914) 555-1234">
+        </div>
+        <div class="field-group">
+          <label>Client email</label>
+          <input type="text" id="clientEmail" placeholder="client@email.com">
+        </div>
+      </div>
+      <hr>
+      <div class="field-grid three">
+        <div class="field-group">
+          <label>Case open date</label>
+          <input type="text" id="dateOpened" placeholder="MM/DD/YYYY">
+        </div>
+        <div class="field-group">
+          <label>Case close date</label>
+          <input type="text" id="dateClosed" placeholder="MM/DD/YYYY">
+        </div>
+        <div class="field-group">
+          <label>Invoice date</label>
+          <input type="text" id="invoiceDate" placeholder="May 18, 2026">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 4: Rate -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-number">4</div>
+      <div class="step-title">Billing rate</div>
+    </div>
+    <div class="step-body">
+      <div class="field-group">
+        <label>Hourly rate</label>
+        <select id="hourlyRate">
+          <option value="150">$150.00 / hr — 401–600% FPL</option>
+          <option value="200">$200.00 / hr — 601%+ FPL</option>
+        </select>
+        <p class="hint">Confirm against "Fee as Quoted to Client" in LegalServer</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Generate -->
+  <button class="generate-btn" id="generateBtn" onclick="generateInvoice()" disabled>
+    ⬇ Generate Invoice (.docx)
+  </button>
+  <div class="status" id="genStatus" style="text-align:center;margin-top:0.75rem"></div>
+</main>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let activityTotals = [];
+let filteredCount = 0;
+let letterLoaded = false;
+let csvLoaded = false;
+
+// ── Logo (embedded) ────────────────────────────────────────────────────────
+const LOGO_B64 = "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";
+
+// ── File handlers ──────────────────────────────────────────────────────────
+document.getElementById('letterInput').addEventListener('change', async function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    await parseDocx(file);
+    document.getElementById('letterZone').className = 'upload-zone loaded';
+    document.getElementById('letterZone').innerHTML = '✓ ' + file.name + ' loaded';
+    document.getElementById('letterStatus').className = 'status ok';
+    document.getElementById('letterStatus').textContent = 'Client fields extracted — review and correct below.';
+    letterLoaded = true;
+    checkReady();
+  } catch(err) {
+    document.getElementById('letterStatus').className = 'status err';
+    document.getElementById('letterStatus').textContent = 'Error reading file: ' + err.message;
+  }
+});
+
+document.getElementById('csvInput').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    complete: function(results) {
+      processCSV(results.data);
+      document.getElementById('csvZone').className = 'upload-zone loaded';
+      document.getElementById('csvZone').innerHTML = '✓ ' + file.name + ' loaded';
+      csvLoaded = true;
+      checkReady();
+    }
+  });
+});
+
+// ── Docx parser ────────────────────────────────────────────────────────────
+async function parseDocx(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  const zip = await JSZip.loadAsync(arrayBuffer);
+  const xml = await zip.file('word/document.xml').async('string');
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xml, 'application/xml');
+  const ns = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+
+  const paras = [];
+  doc.querySelectorAll('p').forEach(p => {
+    let text = '';
+    p.querySelectorAll('t').forEach(t => { text += (t.textContent || ''); });
+    paras.push(text.trim());
+  });
+
+  const nonEmpty = paras.map((t,i) => ({i,t})).filter(x => x.t);
+
+  // Date at index 7
+  const today = paras[7] || '';
+
+  // Detect address shift (parent name missing)
+  const p10 = paras[10] || '';
+  const p11 = paras[11] || '';
+  const p12 = paras[12] || '';
+
+  let clientName='', clientAddr='', csz='';
+  if (/^\d+\s+\w+/.test(p10)) {
+    clientName=''; clientAddr=p10; csz=p11;
+  } else if (/^.+,\s*[A-Z]{2}\s+\d{5}/.test(p10)) {
+    clientName=''; clientAddr=''; csz=p10;
+  } else {
+    clientName=p10; clientAddr=p11; csz=p12;
+  }
+
+  const cszMatch = csz.match(/^(.+),\s*([A-Z]{2})\s+(\d{5})/);
+
+  // Salutation
+  let salutation = '';
+  for (let i=12; i<17; i++) {
+    if ((paras[i]||'').toLowerCase().startsWith('dear')) { salutation=paras[i]; break; }
+  }
+
+  // Minor name from body
+  let minorFirst = '';
+  for (let i=14; i<21; i++) {
+    const m = (paras[i]||'').match(/outcomes for (\w+)/i);
+    if (m) { minorFirst = m[1]; break; }
+  }
+
+  // Data line (pipe-delimited, last non-empty para)
+  let phone='', email='', dateOpened='', dateClosed='', fee='', minorLast='';
+  for (let j=nonEmpty.length-1; j>=0; j--) {
+    if (nonEmpty[j].t.includes('|')) {
+      const parts = nonEmpty[j].t.split('|');
+      if (parts.length >= 5) {
+        phone      = parts[0].trim();
+        email      = parts[1].trim();
+        dateOpened = parts[2].trim();
+        dateClosed = parts[3].trim();
+        fee        = parts[4].replace(/[^\d.]/g,'').trim();
+        minorLast  = parts[5] ? parts[5].trim() : '';
+      }
+      break;
+    }
+  }
+
+  const studentName = minorFirst && minorLast ? minorFirst + ' ' + minorLast
+                    : minorFirst || '';
+
+  // Set rate from fee
+  if (fee === '200') document.getElementById('hourlyRate').value = '200';
+
+  // Populate fields
+  setField('studentName',  studentName);
+  setField('guardianName', clientName);
+  setField('clientAddr',   clientAddr);
+  setField('clientCity',   cszMatch ? cszMatch[1] : '');
+  setField('clientState',  cszMatch ? cszMatch[2] : '');
+  setField('clientZip',    cszMatch ? cszMatch[3] : '');
+  setField('clientPhone',  phone);
+  setField('clientEmail',  email);
+  setField('dateOpened',   dateOpened);
+  setField('dateClosed',   dateClosed);
+  setField('invoiceDate',  today);
+}
+
+function setField(id, val) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.value = val || '';
+  if (val) el.classList.add('auto-filled');
+  else el.classList.remove('auto-filled');
+}
+
+// ── CSV processor ──────────────────────────────────────────────────────────
+function processCSV(rows) {
+  if (!rows.length) return;
+  const cols = Object.keys(rows[0]);
+  const timeCol = cols.find(c => c.toLowerCase().replace(/\s+/g,'').includes('timespent'));
+  const actCol  = cols.find(c => c.toLowerCase().replace(/\s+/g,'').includes('activitycode'));
+  const fundCol = cols.find(c => c.toLowerCase().replace(/\s+/g,'').includes('fundingcode'));
+
+  if (!timeCol || !actCol) {
+    document.getElementById('csvStatus').className = 'status err';
+    document.getElementById('csvStatus').textContent = 'Could not find required columns.';
+    return;
+  }
+
+  const total = rows.length;
+  const billable = fundCol ? rows.filter(r => (r[fundCol]||'').includes('50')) : rows;
+  filteredCount = total - billable.length;
+
+  const totals = {};
+  billable.forEach(r => {
+    const act = (r[actCol]||'').trim();
+    const hrs = parseFloat(r[timeCol]) || 0;
+    if (act) totals[act] = (totals[act]||0) + hrs;
+  });
+
+  activityTotals = Object.entries(totals).sort((a,b)=>a[0].localeCompare(b[0]));
+
+  const rate = parseFloat(document.getElementById('hourlyRate').value) || 150;
+  const totalHrs = activityTotals.reduce((s,[,h])=>s+h,0);
+  const totalAmt = (totalHrs * rate).toFixed(2);
+
+  let rows_html = activityTotals.map(([act,hrs]) =>
+    `<tr><td>${act}</td><td>${hrs.toFixed(2)} hrs</td><td>$${(hrs*rate).toFixed(2)}</td></tr>`
+  ).join('');
+  rows_html += `<tr class="total-row"><td>Total</td><td>${totalHrs.toFixed(2)} hrs</td><td>$${totalAmt}</td></tr>`;
+
+  document.getElementById('previewArea').innerHTML = `
+    <div class="preview-box">
+      <table class="preview-table">
+        <thead><tr><th>Activity</th><th>Hours</th><th>Amount</th></tr></thead>
+        <tbody>${rows_html}</tbody>
+      </table>
+    </div>
+    <p class="hint" style="margin-top:0.4rem">${filteredCount} non-billable rows (000 TBD) excluded</p>
+  `;
+
+  document.getElementById('csvStatus').className = 'status ok';
+  document.getElementById('csvStatus').textContent = `${billable.length} billable entries loaded`;
+}
+
+function checkReady() {
+  document.getElementById('generateBtn').disabled = !(letterLoaded && csvLoaded);
+}
+
+// ── Invoice generator ──────────────────────────────────────────────────────
+function generateInvoice() {
+  const btn = document.getElementById('generateBtn');
+  const status = document.getElementById('genStatus');
+  btn.disabled = true;
+  btn.textContent = 'Generating…';
+  status.textContent = '';
+
+  try {
+    const studentName = document.getElementById('studentName').value.trim() || 'Student';
+    const guardianName= document.getElementById('guardianName').value.trim() || '';
+    const clientAddr  = document.getElementById('clientAddr').value.trim() || '';
+    const clientCity  = document.getElementById('clientCity').value.trim() || '';
+    const clientState = document.getElementById('clientState').value.trim() || '';
+    const clientZip   = document.getElementById('clientZip').value.trim() || '';
+    const clientCSZ   = [clientCity, clientState, clientZip].filter(Boolean).join(', ').replace(', NY,', ', NY');
+    const clientPhone = document.getElementById('clientPhone').value.trim() || '';
+    const clientEmail = document.getElementById('clientEmail').value.trim() || '';
+    const dateOpened  = document.getElementById('dateOpened').value.trim() || '';
+    const dateClosed  = document.getElementById('dateClosed').value.trim() || '';
+    const invoiceDate = document.getElementById('invoiceDate').value.trim() || '';
+    const rate        = parseFloat(document.getElementById('hourlyRate').value) || 150;
+    const dateRange   = dateOpened && dateClosed ? `${dateOpened} \u2013 ${dateClosed}` : dateOpened || dateClosed;
+
+    const totalHrs = activityTotals.reduce((s,[,h])=>s+h,0);
+    const totalAmt = (totalHrs * rate).toFixed(2);
+
+    const doc = buildDocx({
+      studentName, guardianName, clientAddr, clientCSZ: `${clientCity}, ${clientState} ${clientZip}`.trim(),
+      clientPhone, clientEmail, dateRange, invoiceDate, rate, totalHrs, totalAmt,
+      activityTotals
+    });
+
+    doc.generateAsync({type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'})
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `SA_Invoice_${studentName.replace(/\s+/g,'_')}_${dateClosed.replace(/\//g,'-')}.docx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        status.className = 'status ok';
+        status.textContent = 'Invoice downloaded successfully.';
+        btn.disabled = false;
+        btn.textContent = '\u2B07 Generate Invoice (.docx)';
+      });
+  } catch(err) {
+    status.className = 'status err';
+    status.textContent = 'Error: ' + err.message;
+    btn.disabled = false;
+    btn.textContent = '\u2B07 Generate Invoice (.docx)';
+  }
+}
+
+// ── Docx builder ───────────────────────────────────────────────────────────
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function xmlPara(text, opts={}) {
+  const {bold=false, underline=false, size=22, align='', left=0, firstLine=0, before=0, after=0, line=240} = opts;
+  const rpr = `<w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>${bold?'<w:b/>':''}${underline?'<w:u w:val="single"/>':''}<w:sz w:val="${size}"/><w:szCs w:val="${size}"/></w:rPr>`;
+  const ppr_parts = [`<w:spacing w:before="${before}" w:after="${after}" w:line="${line}" w:lineRule="auto"/>`];
+  if (align) ppr_parts.push(`<w:jc w:val="${align}"/>`);
+  if (left || firstLine) ppr_parts.push(`<w:ind w:left="${left}" w:firstLine="${firstLine}"/>`);
+  const ppr = `<w:pPr>${ppr_parts.join('')}</w:pPr>`;
+  return `<w:p>${ppr}<w:r>${rpr}<w:t xml:space="preserve">${esc(text)}</w:t></w:r></w:p>`;
+}
+
+function cellPara(text, bold=false) {
+  const rpr = `<w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>${bold?'<w:b/>':''}<w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr>`;
+  return `<w:p><w:pPr><w:spacing w:before="0" w:after="160" w:line="259" w:lineRule="auto"/></w:pPr><w:r>${rpr}<w:t xml:space="preserve">${esc(text)}</w:t></w:r></w:p>`;
+}
+
+function allBorders() {
+  return ['top','left','bottom','right','insideH','insideV'].map(s=>
+    `<w:${s} w:val="single" w:color="000000" w:sz="4" w:space="0"/>`).join('');
+}
+function noBorders() {
+  return ['top','left','bottom','right','insideH','insideV'].map(s=>
+    `<w:${s} w:val="nil"/>`).join('');
+}
+function cellNoBorder() {
+  return ['top','left','bottom','right'].map(s=>`<w:${s} w:val="nil"/>`).join('');
+}
+function cellAllBorder() {
+  return ['top','left','bottom','right'].map(s=>
+    `<w:${s} w:val="single" w:color="000000" w:sz="4" w:space="0"/>`).join('');
+}
+
+function contactRow(leftText, rightParts) {
+  const lRpr = `<w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr>`;
+  const sp = `<w:pPr><w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/></w:pPr>`;
+  const leftCell = `<w:tc><w:tcPr><w:tcW w:w="4680" w:type="dxa"/><w:tcBorders>${cellNoBorder()}</w:tcBorders></w:tcPr><w:p>${sp}<w:r>${lRpr}<w:t xml:space="preserve">${esc(leftText)}</w:t></w:r></w:p></w:tc>`;
+  const rightRuns = rightParts.map(([t,b]) => {
+    const rpr = `<w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>${b?'<w:b/>':''}<w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr>`;
+    return `<w:r>${rpr}<w:t xml:space="preserve">${esc(t)}</w:t></w:r>`;
+  }).join('');
+  const rightCell = `<w:tc><w:tcPr><w:tcW w:w="4680" w:type="dxa"/><w:tcBorders>${cellNoBorder()}</w:tcBorders></w:tcPr><w:p>${sp}${rightRuns}</w:p></w:tc>`;
+  return `<w:tr>${leftCell}${rightCell}</w:tr>`;
+}
+
+function buildDocx(d) {
+  const {studentName,guardianName,clientAddr,clientCSZ,clientPhone,clientEmail,
+         dateRange,invoiceDate,rate,totalHrs,totalAmt,activityTotals} = d;
+
+  const AGENCY = 'Student Advocacy, Inc.';
+  const ADDR1  = '3 West Main Street, Suite 212';
+  const ADDR2  = 'Elmsford, NY 10523';
+  const PHONE  = '914-347-7039 x101';
+  const EMAIL  = 'drosenthal@studentadvocacy.net';
+  const EXEC   = 'Diane Rosenthal';
+  const TERMS  = 'Thank you. Terms & Conditions: Payment is due within 30 days of the date of invoice.';
+  const PAYABLE= 'Please make the check payable to Student Advocacy, Inc. and mail it to the above address.';
+
+  // Logo image relationship
+  const logoRel = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/logo.jpg"/>
+</Relationships>`;
+
+  function logoParaXml() {
+    return `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="120" w:lineRule="auto"/></w:pPr><w:r><w:rPr/><w:drawing><wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" distT="0" distB="0" distL="0" distR="0"><wp:extent cx="685800" cy="342900"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="1" name="logo"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="1" name="logo"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rId2" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="685800" cy="342900"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
+  }
+
+  // Contact table (borderless 2-col)
+  const contactTable = `<w:tbl>
+    <w:tblPr><w:tblW w:w="9360" w:type="dxa"/><w:tblBorders>${noBorders()}</w:tblBorders><w:tblLayout w:type="fixed"/></w:tblPr>
+    <w:tblGrid><w:gridCol w:w="4680"/><w:gridCol w:w="4680"/></w:tblGrid>
+    ${contactRow('Agency Contact Information', [['Client Contact Information',true]])}
+    ${contactRow(AGENCY, [["Student\u2019s Name: ",true],[studentName,false]])}
+    ${contactRow(ADDR1,  [['Parent/Guardian Name: ',true],[guardianName,false]])}
+    ${contactRow(ADDR2,  [['Address: ',true],[clientAddr,false]])}
+    ${contactRow('Phone: '+PHONE, [['Phone: ',true],[clientPhone,false]])}
+    ${contactRow('Email: '+EMAIL, [['Email: ',true],[clientEmail,false]])}
+  </w:tbl>`;
+
+  // Summary table (5 col)
+  function sumCell(label, value) {
+    return `<w:tc><w:tcPr><w:tcBorders>${cellAllBorder()}</w:tcBorders></w:tcPr>${cellPara(label,true)}${cellPara(value,true)}</w:tc>`;
+  }
+  const summaryTable = `<w:tbl>
+    <w:tblPr><w:tblW w:w="9390" w:type="dxa"/><w:jc w:val="center"/><w:tblBorders>${allBorders()}</w:tblBorders><w:tblLayout w:type="fixed"/></w:tblPr>
+    <w:tblGrid><w:gridCol w:w="1965"/><w:gridCol w:w="1920"/><w:gridCol w:w="1680"/><w:gridCol w:w="1845"/><w:gridCol w:w="1980"/></w:tblGrid>
+    <w:tr>
+      ${sumCell('Invoice for Client:', guardianName||studentName)}
+      ${sumCell('Dates of Service:', dateRange)}
+      ${sumCell('Hourly Rate:', '$'+rate.toFixed(2))}
+      ${sumCell('Total Hours of Service:', totalHrs.toFixed(2)+' hours')}
+      ${sumCell('Total Amount Due:', '$'+totalAmt)}
+    </w:tr>
+  </w:tbl>`;
+
+  // Services table (3 col)
+  const descCol = ['Description of Services', ...activityTotals.map(([a])=>a)].map((t,i)=>cellPara(t,i===0)).join('');
+  const hrsCol  = ['Hours Per Service:', ...activityTotals.map(([,h])=>h.toFixed(2)+' hours')].map((t,i)=>cellPara(t,true)).join('');
+  const amtCol  = ['Fee per Service', ...activityTotals.map(([,h])=>'Amount: $'+(h*rate).toFixed(2))].map((t,i)=>cellPara(t,true)).join('');
+  function svcCell(content) {
+    return `<w:tc><w:tcPr><w:tcBorders>${cellAllBorder()}</w:tcBorders></w:tcPr>${content}</w:tc>`;
+  }
+  const servicesTable = `<w:tbl>
+    <w:tblPr><w:tblW w:w="10110" w:type="dxa"/><w:tblBorders>${allBorders()}</w:tblBorders><w:tblLayout w:type="fixed"/></w:tblPr>
+    <w:tblGrid><w:gridCol w:w="3345"/><w:gridCol w:w="3495"/><w:gridCol w:w="3270"/></w:tblGrid>
+    <w:tr>${svcCell(descCol)}${svcCell(hrsCol)}${svcCell(amtCol)}</w:tr>
+  </w:tbl>`;
+
+  // Footer
+  const footerLine = `<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/><w:ind w:left="1440" w:firstLine="720"/></w:pPr>
+    <w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:u w:val="single"/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr><w:t>Invoice Date:</w:t></w:r>
+    <w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr><w:t xml:space="preserve"> ${esc(invoiceDate)}           </w:t></w:r>
+    <w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:u w:val="single"/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr><w:t>Total Amount Due:</w:t></w:r>
+    <w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr><w:t xml:space="preserve"> $${esc(totalAmt)}</w:t></w:r>
+  </w:p>`;
+
+  const empty = (opts={}) => `<w:p><w:pPr><w:spacing w:before="${opts.before||0}" w:after="${opts.after||0}" w:line="240" w:lineRule="auto"/>${opts.align?`<w:jc w:val="${opts.align}"/></w:pPr>`:'</w:pPr>'}</w:p>`;
+  const pgBreak = `<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/></w:pPr><w:r><w:lastRenderedPageBreak/><w:br w:type="page"/></w:r></w:p>`;
+
+  // Cover letter body
+  const coverBody = `
+    ${logoParaXml()}
+    ${xmlPara('Student Advocacy, Inc.')}
+    ${xmlPara(ADDR1)}
+    ${xmlPara(ADDR2)}
+    ${xmlPara('Phone: '+PHONE)}
+    ${xmlPara('Email: '+EMAIL)}
+    ${xmlPara('www.studentadvocacy.net')}
+    ${empty()}
+    ${xmlPara(invoiceDate)}
+    ${empty()}
+    ${xmlPara(guardianName||studentName)}
+    ${xmlPara(clientAddr)}
+    ${xmlPara(clientCSZ)}
+    ${empty()}
+    ${xmlPara('Dear '+(guardianName||studentName)+',')}
+    ${empty()}
+    ${xmlPara('Thank you for the opportunity to work together toward achieving positive outcomes for '+studentName.split(' ')[0]+' in school. Our representation and services are now completed.')}
+    ${empty()}
+    ${xmlPara('Enclosed please find the itemized invoice for services rendered. Please mail payment to the address below within thirty days of receipt of this invoice.')}
+    ${empty()}
+    ${xmlPara('If you require additional services in the future, please do not hesitate to contact Student Advocacy. We wish '+studentName.split(' ')[0]+' continued success in their education.')}
+    ${empty()}
+    ${xmlPara('Sincerely,')}
+    ${empty()}${empty()}
+    ${xmlPara(EXEC)}
+    ${xmlPara('Executive Director')}
+    ${xmlPara(AGENCY)}
+    ${pgBreak}
+  `;
+
+  // Invoice page body
+  const invoiceBody = `
+    ${empty({after:120,align:'center'})}
+    ${empty({after:120,align:'center'})}
+    ${logoParaXml()}
+    <w:p><w:pPr><w:spacing w:before="0" w:after="160" w:line="240" w:lineRule="auto"/><w:ind w:left="3600"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve"> Client Invoice</w:t></w:r></w:p>
+    ${empty({after:160})}
+    ${contactTable}
+    ${empty()}
+    ${summaryTable}
+    ${empty()}
+    ${servicesTable}
+    ${empty()}
+    ${footerLine}
+    ${empty({align:'center'})}
+    ${xmlPara(TERMS,  {bold:true,align:'center'})}
+    ${xmlPara(PAYABLE,{bold:true,underline:true,align:'center'})}
+  `;
+
+  const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas"
+  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+  xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+  xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml"
+  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="w14">
+<w:body>${coverBody}${invoiceBody}
+<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr>
+</w:body></w:document>`;
+
+  const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+<w:docDefaults><w:rPrDefault><w:rPr>
+<w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
+<w:sz w:val="22"/><w:szCs w:val="22"/>
+</w:rPr></w:rPrDefault></w:docDefaults>
+</w:styles>`;
+
+  const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Default Extension="jpg" ContentType="image/jpeg"/>
+<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+</Types>`;
+
+  const rootRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`;
+
+  const zip = new JSZip();
+  zip.file('[Content_Types].xml', contentTypes);
+  zip.file('_rels/.rels', rootRels);
+  zip.file('word/document.xml', documentXml);
+  zip.file('word/_rels/document.xml.rels', logoRel);
+  zip.file('word/styles.xml', stylesXml);
+
+  // Add logo
+  const logoBytes = Uint8Array.from(atob(LOGO_B64), c => c.charCodeAt(0));
+  zip.file('word/media/logo.jpg', logoBytes);
+
+  return zip;
+}
+</script>
+</body>
+</html>
