@@ -179,6 +179,11 @@
   .hint { font-family: sans-serif; font-size: 0.78rem; color: var(--gray); margin-top: 0.3rem; }
   hr { border: none; border-top: 1px solid var(--border); margin: 1rem 0; }
 </style>
+
+<script data-goatcounter="https://zacroz.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+<script>
+  var _pageLoadTime = Date.now();
+</script>
 </head>
 <body>
 
@@ -552,6 +557,15 @@ function generateInvoice() {
         status.textContent = 'Invoice downloaded successfully.';
         btn.disabled = false;
         btn.textContent = '\u2B07 Generate Invoice (.docx)';
+        // Log generation event with time-on-tool to GoatCounter
+        var secondsSpent = Math.round((Date.now() - _pageLoadTime) / 1000);
+        if (window.goatcounter && window.goatcounter.count) {
+          window.goatcounter.count({
+            path: 'invoice-generated',
+            title: 'Invoice Generated (' + secondsSpent + 's)',
+            event: true
+          });
+        }
       });
   } catch(err) {
     status.className = 'status err';
