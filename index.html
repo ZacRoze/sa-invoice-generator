@@ -8,16 +8,16 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
   :root {
-    --navy: #1a2744;
-    --gold: #c8a84b;
-    --gold-light: #e8c96a;
-    --cream: #faf8f3;
+    --navy: #1c4f6a;
+    --gold: #008c78;
+    --gold-light: #a0c8c8;
+    --cream: #f4fafa;
     --white: #ffffff;
     --gray: #6b7280;
     --gray-light: #f3f4f6;
     --border: #e5e2d8;
-    --success: #166534;
-    --success-bg: #dcfce7;
+    --success: #005f50;
+    --success-bg: #d1f5ef;
     --error: #991b1b;
     --error-bg: #fee2e2;
   }
@@ -44,7 +44,7 @@
     letter-spacing: 0.05em;
   }
   header span {
-    color: var(--gold);
+    color: #a0c8c8;
     font-size: 0.85rem;
     margin-left: auto;
     letter-spacing: 0.08em;
@@ -71,8 +71,8 @@
     gap: 0.75rem;
   }
   .step-number {
-    background: var(--gold);
-    color: var(--navy);
+    background: #ffffff;
+    color: #1c4f6a;
     width: 24px; height: 24px;
     border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
@@ -302,8 +302,8 @@
       <div class="field-group">
         <label>Hourly rate</label>
         <select id="hourlyRate">
-          <option value="150">$150.00 / hr — 401–600% FPL</option>
-          <option value="200">$200.00 / hr — 601%+ FPL</option>
+          <option value="150">$150.00 / hr — 400–600% FPL</option>
+          <option value="200">$200.00 / hr — over 600% FPL</option>
         </select>
         <p class="hint">Confirm against "Fee as Quoted to Client" in LegalServer</p>
       </div>
