@@ -301,10 +301,13 @@
     <div class="step-body">
       <div class="field-group">
         <label>Hourly rate</label>
-        <select id="hourlyRate">
+        <select id="hourlyRate" onchange="checkManualRate()">
           <option value="150">$150.00 / hr — 400–600% FPL</option>
           <option value="200">$200.00 / hr — over 600% FPL</option>
+          <option value="other">Other (enter manually)</option>
         </select>
+        <input type="number" id="manualRate" placeholder="Enter rate e.g. 100" min="0" step="0.01"
+          style="display:none;margin-top:8px;width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:3px;padding:0.5rem 0.625rem;font-size:0.9rem;font-family:sans-serif;">
         <p class="hint">Confirm against "Fee as Quoted to Client" in LegalServer</p>
       </div>
     </div>
@@ -360,6 +363,20 @@ document.getElementById('csvInput').addEventListener('change', function(e) {
     }
   });
 });
+
+function checkManualRate() {
+  var sel = document.getElementById('hourlyRate');
+  var manual = document.getElementById('manualRate');
+  manual.style.display = sel.value === 'other' ? 'block' : 'none';
+}
+
+function getRate() {
+  var sel = document.getElementById('hourlyRate');
+  if (sel.value === 'other') {
+    return parseFloat(document.getElementById('manualRate').value) || 0;
+  }
+  return parseFloat(sel.value) || 150;
+}
 
 // ── Docx parser ────────────────────────────────────────────────────────────
 async function parseDocx(file) {
@@ -432,7 +449,16 @@ async function parseDocx(file) {
                     : minorFirst || '';
 
   // Set rate from fee
-  if (fee === '200') document.getElementById('hourlyRate').value = '200';
+  var feeNum = parseFloat(fee);
+  if (feeNum === 200) {
+    document.getElementById('hourlyRate').value = '200';
+  } else if (feeNum === 150) {
+    document.getElementById('hourlyRate').value = '150';
+  } else if (feeNum > 0 && feeNum !== 150 && feeNum !== 200) {
+    document.getElementById('hourlyRate').value = 'other';
+    document.getElementById('manualRate').style.display = 'block';
+    document.getElementById('manualRate').value = feeNum.toFixed(2);
+  }
 
   // Populate fields
   setField('studentName',  studentName);
@@ -531,7 +557,7 @@ function generateInvoice() {
     const dateOpened  = document.getElementById('dateOpened').value.trim() || '';
     const dateClosed  = document.getElementById('dateClosed').value.trim() || '';
     const invoiceDate = document.getElementById('invoiceDate').value.trim() || '';
-    const rate        = parseFloat(document.getElementById('hourlyRate').value) || 150;
+    const rate        = getRate();
     const dateRange   = dateOpened && dateClosed ? `${dateOpened} \u2013 ${dateClosed}` : dateOpened || dateClosed;
 
     const totalHrs = activityTotals.reduce((s,[,h])=>s+h,0);
