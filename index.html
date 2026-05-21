@@ -306,7 +306,7 @@
           <option value="200">$200.00 / hr — over 600% FPL</option>
           <option value="other">Other (enter manually)</option>
         </select>
-        <input type="number" id="manualRate" placeholder="Enter rate e.g. 100" min="0" step="0.01"
+        <input type="number" id="manualRate" placeholder="Enter rate e.g. 100" min="0" step="0.01" oninput="updatePreview()"
           style="display:none;margin-top:8px;width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:3px;padding:0.5rem 0.625rem;font-size:0.9rem;font-family:sans-serif;">
         <p class="hint">Confirm against "Fee as Quoted to Client" in LegalServer</p>
       </div>
@@ -363,6 +363,26 @@ document.getElementById('csvInput').addEventListener('change', function(e) {
     }
   });
 });
+
+function updatePreview() {
+  if (!activityTotals.length) return;
+  const rate = getRate();
+  const totalHrs = activityTotals.reduce((s,[,h])=>s+h,0);
+  const totalAmt = (totalHrs * rate).toFixed(2);
+  let rows_html = activityTotals.map(([act,hrs]) =>
+    `<tr><td>${act}</td><td>${hrs.toFixed(2)} hrs</td><td>$${(hrs*rate).toFixed(2)}</td></tr>`
+  ).join('');
+  rows_html += `<tr class="total-row"><td>Total</td><td>${totalHrs.toFixed(2)} hrs</td><td>$${totalAmt}</td></tr>`;
+  document.getElementById('previewArea').innerHTML = `
+    <div class="preview-box">
+      <table class="preview-table">
+        <thead><tr><th>Activity</th><th>Hours</th><th>Amount</th></tr></thead>
+        <tbody>${rows_html}</tbody>
+      </table>
+    </div>
+    <p class="hint" style="margin-top:0.4rem">${filteredCount} non-billable rows (000 TBD) excluded</p>
+  `;
+}
 
 function checkManualRate() {
   var sel = document.getElementById('hourlyRate');
@@ -459,6 +479,8 @@ async function parseDocx(file) {
     document.getElementById('manualRate').style.display = 'block';
     document.getElementById('manualRate').value = feeNum.toFixed(2);
   }
+  // Recalculate preview with correct rate
+  if (activityTotals.length > 0) updatePreview();
 
   // Populate fields
   setField('studentName',  studentName);
@@ -509,27 +531,9 @@ function processCSV(rows) {
 
   activityTotals = Object.entries(totals).sort((a,b)=>a[0].localeCompare(b[0]));
 
-  const rate = parseFloat(document.getElementById('hourlyRate').value) || 150;
-  const totalHrs = activityTotals.reduce((s,[,h])=>s+h,0);
-  const totalAmt = (totalHrs * rate).toFixed(2);
-
-  let rows_html = activityTotals.map(([act,hrs]) =>
-    `<tr><td>${act}</td><td>${hrs.toFixed(2)} hrs</td><td>$${(hrs*rate).toFixed(2)}</td></tr>`
-  ).join('');
-  rows_html += `<tr class="total-row"><td>Total</td><td>${totalHrs.toFixed(2)} hrs</td><td>$${totalAmt}</td></tr>`;
-
-  document.getElementById('previewArea').innerHTML = `
-    <div class="preview-box">
-      <table class="preview-table">
-        <thead><tr><th>Activity</th><th>Hours</th><th>Amount</th></tr></thead>
-        <tbody>${rows_html}</tbody>
-      </table>
-    </div>
-    <p class="hint" style="margin-top:0.4rem">${filteredCount} non-billable rows (000 TBD) excluded</p>
-  `;
-
   document.getElementById('csvStatus').className = 'status ok';
   document.getElementById('csvStatus').textContent = `${billable.length} billable entries loaded`;
+  updatePreview();
 }
 
 function checkReady() {
